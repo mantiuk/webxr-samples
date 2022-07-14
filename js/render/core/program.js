@@ -47,6 +47,11 @@ export class Program {
     gl.shaderSource(this._fragShader, definesString + fragSrc);
     gl.compileShader(this._fragShader);
 
+    var compiled = gl.getShaderParameter(this._fragShader, gl.COMPILE_STATUS);
+    console.log('Shader compiled successfully: ' + compiled);
+    var compilationLog = gl.getShaderInfoLog(this._fragShader);
+    console.log('Shader compiler log: ' + compilationLog);
+
     if (attribMap) {
       this.attrib = {};
       for (let attribName in attribMap) {
