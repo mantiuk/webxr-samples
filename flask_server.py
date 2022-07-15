@@ -4,6 +4,10 @@ from flask import Flask, render_template, session, request, \
 from flask_socketio import SocketIO, emit, join_room, leave_room, \
     close_room, rooms, disconnect
 
+from gfxdisp.specbos import specbos_measure
+
+specbos_port = 'COM6'
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app)
@@ -11,7 +15,7 @@ socketio = SocketIO(app)
 thread = None
 thread_lock = Lock()
 
-meas_d = range(2, 45)
+meas_d = range(0, 45)
 d_width = 3
 
 def background_thread():
@@ -43,14 +47,13 @@ def send_static(path):
 
 def next_measurement():
     step = session.get('meas_step', -1)    
-    if step == -1 or step > len(meas_d):
+    if step == -1 or step >= len(meas_d):
         step=-1
     else:
+        print( "step {} out of {}".format(step, len(meas_d)-1) )
         emit('show',
             { 'd_beg': meas_d[step], 'd_end': meas_d[step]+d_width, 'r': 1, 'g': 1, 'b': 1, 'step': session['meas_step']})
-        step = step+1
 
-    session['meas_step'] = step
 
 @socketio.event
 def start_measurement(message):
@@ -60,7 +63,12 @@ def start_measurement(message):
 
 @socketio.event
 def ready_to_measure():
-    print( 'Now I should measure' )
+    step = session.get('meas_step', -1)    
+    print( 'Measuring {}'.format(step) )
+    (Y, x, y) = specbos_measure( specbos_port )
+    print( 'd_beg = {}; Y = {}; x = {}; y = {}'.format( meas_d[step], Y, x, y) )
+    step = step+1
+    session['meas_step'] = step
     next_measurement()
 
 

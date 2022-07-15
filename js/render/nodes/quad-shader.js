@@ -51,6 +51,7 @@ class ShaderRingMaterial extends Material {
       this.icon = this.defineSampler("icon");
       this.defineUniform('ring_start', 0.);
       this.defineUniform('ring_end', 0.1);
+      this.defineUniform('is_centering', 1.);
       this.defineUniform('color', [1., 1., 1.]);
     }
   
@@ -79,13 +80,21 @@ class ShaderRingMaterial extends Material {
 
       uniform float ring_start;
       uniform float ring_end;
+      uniform float is_centering;
       uniform vec3 color;
 
       vec4 fragment_main() {
         //vec4 fake = texture2D(icon, -vTexCoord);
         float r = sqrt((vTexCoord.x-0.5)*(vTexCoord.x-0.5) + (vTexCoord.y-0.5)*(vTexCoord.y-0.5));
-        float p = float((r>=ring_start) && (r<=ring_end));
-        return vec4( p*color.r, p*color.g, p*color.b, 1. ); 
+        vec4 out_color;
+        if( is_centering==1. ) {
+          float p = pow( 1.-r, 3. );
+          out_color = vec4(p,p,p,1.);
+        } else {
+          float p = float((r>=ring_start) && (r<=ring_end));
+          out_color = vec4( p*color.r, p*color.g, p*color.b, 1. );
+        }
+        return out_color;
       }`;
     }
   }
@@ -120,6 +129,11 @@ export class QuadShaderNode extends Node {
     this._iconRenderPrimitive.uniforms.ring_start.value = x_beg;
     this._iconRenderPrimitive.uniforms.ring_end.value = x_end;
     this._iconRenderPrimitive.uniforms.color.value = rgb;
+    this._iconRenderPrimitive.uniforms.is_centering = 0;
+  }
+
+  setCentering() {
+    this._iconRenderPrimitive.uniforms.is_centering = 1;
   }
 
   onRendererChanged(renderer) {

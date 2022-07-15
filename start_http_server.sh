@@ -4,4 +4,4 @@
 
 export FLASK_ENV=development
 export FLASK_APP=flask_server
-flask run
+PYTHONPATH=".;../gfxdisp_python/" flask run

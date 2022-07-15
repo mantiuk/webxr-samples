@@ -221,7 +221,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                       }
                       if(source.gamepad.buttons[1].pressed) {
                         console.log( "Center disk pressed" );
-                        ringNode.setRing( 0., 0.4, [1., 1., 1.] );
+                        //ringNode.setRing( 0., 0.4, [1., 1., 1.] );
+                        ringNode.setCentering();
                       }
                     }
                     isPressed = true;  
