@@ -51,7 +51,7 @@ class ShaderRingMaterial extends Material {
       this.icon = this.defineSampler("icon");
       this.defineUniform('ring_start', 0.);
       this.defineUniform('ring_end', 0.1);
-      this.defineUniform('is_centering', 1.);
+      this.defineUniform('is_centering', true);
       this.defineUniform('color', [1., 1., 1.]);
     }
   
@@ -80,16 +80,25 @@ class ShaderRingMaterial extends Material {
 
       uniform float ring_start;
       uniform float ring_end;
-      uniform float is_centering;
+      uniform bool is_centering;
       uniform vec3 color;
 
       vec4 fragment_main() {
-        //vec4 fake = texture2D(icon, -vTexCoord);
+        //vec4 fake = texture2D(icon, -vTexCoord);        
         float r = sqrt((vTexCoord.x-0.5)*(vTexCoord.x-0.5) + (vTexCoord.y-0.5)*(vTexCoord.y-0.5));
         vec4 out_color;
-        if( is_centering==1. ) {
-          float p = pow( 1.-r, 3. );
+        if( is_centering ) {
+          float p = pow( 1.-r, 6. );
           out_color = vec4(p,p,p,1.);
+          const float deg2 = 0.0175;
+          if( vTexCoord.x-0.5>deg2 )
+            out_color = vec4(1.,0.,0.,1.);
+          if( vTexCoord.x-0.5<-deg2 )
+            out_color = vec4(0.,1.,0.,1.);
+          if( vTexCoord.y-0.5>deg2 )
+            out_color = vec4(0.,0.,1.,1.);
+          if( vTexCoord.y-0.5<-deg2 )
+            out_color = vec4(1.,1.,0.,1.);          
         } else {
           float p = float((r>=ring_start) && (r<=ring_end));
           out_color = vec4( p*color.r, p*color.g, p*color.b, 1. );
@@ -129,11 +138,12 @@ export class QuadShaderNode extends Node {
     this._iconRenderPrimitive.uniforms.ring_start.value = x_beg;
     this._iconRenderPrimitive.uniforms.ring_end.value = x_end;
     this._iconRenderPrimitive.uniforms.color.value = rgb;
-    this._iconRenderPrimitive.uniforms.is_centering = 0;
+    this._iconRenderPrimitive.uniforms.is_centering.value = false;
+    console.log( "Set ring d_beg: " + d_beg );
   }
 
   setCentering() {
-    this._iconRenderPrimitive.uniforms.is_centering = 1;
+    this._iconRenderPrimitive.uniforms.is_centering.value = true;
   }
 
   onRendererChanged(renderer) {

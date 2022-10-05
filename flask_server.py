@@ -5,18 +5,24 @@ from flask_socketio import SocketIO, emit, join_room, leave_room, \
     close_room, rooms, disconnect
 
 from gfxdisp.specbos import specbos_measure
+from gfxdisp.color import *
 
-specbos_port = 'COM6'
+specbos_port = 'COM3'
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
+#app.debug = True
 socketio = SocketIO(app)
 
 thread = None
 thread_lock = Lock()
 
-meas_d = range(0, 45)
-d_width = 3
+d_range = range(0, 50, 2) 
+
+meas_d = [100] + list(d_range) + list(d_range)
+d_width = [0] + [3] * len(d_range) + [5] * len(d_range)
+
+meas_file = 'vr_contrast_meas_quest2.csv'
 
 def background_thread():
     """Example of how to send server generated events to clients."""
@@ -46,20 +52,40 @@ def send_static(path):
 #     #return render_template('index.html')
 
 def next_measurement():
+    if session.get('do_pause', 0) == 1:
+        return
     step = session.get('meas_step', -1)    
     if step == -1 or step >= len(meas_d):
         step=-1
-    else:
+    else:                
         print( "step {} out of {}".format(step, len(meas_d)-1) )
         emit('show',
-            { 'd_beg': meas_d[step], 'd_end': meas_d[step]+d_width, 'r': 1, 'g': 1, 'b': 1, 'step': session['meas_step']})
-
+            { 'd_beg': meas_d[step], 'd_end': meas_d[step]+d_width[step], 'r': 1, 'g': 1, 'b': 1, 'step': session['meas_step']})
 
 @socketio.event
-def start_measurement(message):
-    print( 'Measurements started' )
-    session['meas_step'] = 0
+def start_measurement(start_from):
+    print( f'Starting measurement from {start_from}' )
+
+    session['meas_step'] = int(start_from)
+    session['do_pause'] = 0
     next_measurement()
+
+@socketio.event
+def pause_measurement(message):
+    print( 'Measurements paused' )
+    session['do_pause'] = 1
+
+@socketio.event
+def single_measurement(message):
+    print( 'Single measurement' )
+    (Y, x, y) = specbos_measure( specbos_port )
+    print( 'Y = {}; x = {}; y = {}'.format( Y, x, y) )
+
+    Yxy = np.array( [[Y, x, y]] )
+    sRGB = im_ctrans( Yxy, 'Yxy', 'srgb', exposure=0.5/Y )*255
+
+    emit('measured',
+        { 'Y': Y, 'x': x, 'y': y, 'r': sRGB[0,0], 'g': sRGB[0,1], 'b': sRGB[0,2], 'step': -1 })
 
 @socketio.event
 def ready_to_measure():
@@ -67,8 +93,23 @@ def ready_to_measure():
     print( 'Measuring {}'.format(step) )
     (Y, x, y) = specbos_measure( specbos_port )
     print( 'd_beg = {}; Y = {}; x = {}; y = {}'.format( meas_d[step], Y, x, y) )
+
+    Yxy = np.array( [[Y, x, y]] )
+    sRGB = im_ctrans( Yxy, 'Yxy', 'srgb', exposure=0.5/Y )
+
+    if step==0:
+        with open(meas_file, "w") as fo:
+            fo.write( "d_beg, d_end, Y, x, y\n" )
+
+    with open(meas_file, "a") as fo:
+        d_beg = meas_d[step]
+        d_end = meas_d[step] + d_width[step]
+        fo.write( f'{d_beg}, {d_end}, {Y}, {x}, {y}\n' )
+
     step = step+1
     session['meas_step'] = step
+    emit('measured',
+        { 'Y': Y, 'x': x, 'y': y, 'r': sRGB[0,0], 'g': sRGB[0,1], 'b': sRGB[0,2], 'step': step })
     next_measurement()
 
 

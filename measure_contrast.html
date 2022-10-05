@@ -48,7 +48,21 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     </header>
     <main style='text-align: center;'>
       <p>Click 'Enter XR' to see content</p> 
+      <p>Press trigger to start measurement. Press the side buttom to measure for the centering ring. B to stop the measurements.</p>
+      <button onclick="module.centering_measurement()">Centering measurement</button>
+      <button onclick="module.start_measurement()">Start measurement</button>
+      <span>Start from:</span><input type="number" id="start_from" min="0" max="300" value="0"/>
+      <button onclick="module.pause_measurement()">Pause measurement</button>      
+      <h2 id="meas_status">Waiting</h2>
+      <p id="meas_info1"></p>
+      <p id="meas_info2"></p>
+      <div id="meas_color" style="width: 32px; height: 32px; background-color: black;"></div>
+      <img src="colour_arrangement.png"/>
+
     </main>
+    <script type="text/javascript">
+      const module = {};
+    </script>
     <script type="module">
       import {WebXRButton} from './js/util/webxr-button.js';
       import {Scene} from './js/render/scenes/scene.js';
@@ -106,7 +120,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           socket.on('show', function(msg, cb) {
               console.log( 'Received d_beg:' + msg.d_beg + " d_end:" + msg.d_end );
               ringNode.setRing( msg.d_beg, msg.d_end, [msg.r, msg.g, msg.b] );
+              $("#meas_info2").text(`Ring: d_beg=${msg.d_beg}, d_end=${msg.d_end}`); 
               prepared_to_measure = true;
+              if (cb)
+                  cb();
+          });
+
+          socket.on('measured', function(msg, cb) {
+            let step = -1;
+            if( msg.step !== undefined ) {
+              step = msg.step;
+            }
+
+            $("#meas_info1").text(`Measured: Y=${msg.Y}, x=${msg.x}, y=${msg.y}, step=${step}`); 
+            document.getElementById("meas_color").style.backgroundColor = 'rgb(' + msg.r + ',' + msg.g + ',' + msg.b + ')';
               if (cb)
                   cb();
           });
@@ -201,6 +228,29 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         renderer = null;
       }
 
+      export function start_measurement() {
+        $("#meas_status").text("Starting the main measurement"); 
+        let start_from = document.getElementById("start_from").value;
+        console.log( "Start measurement from step " + start_from );
+        socket.emit('start_measurement', start_from);
+      }
+
+      export function pause_measurement() {
+        $("#meas_status").text("Measurement paused");                        
+        socket.emit('pause_measurement', {data: 'none'});
+      }
+
+      export function centering_measurement() {
+        $("#meas_status").text("Triggered measurement to center the meter.");                        
+        console.log( "Center disk pressed" );
+        ringNode.setCentering();
+        socket.emit('single_measurement', {data: 'none'});
+      }
+
+      module.centering_measurement = centering_measurement;
+      module.start_measurement = start_measurement;
+      module.pause_measurement = pause_measurement;
+
       // Called every time the XRSession requests that a new frame be drawn.
       function onXRFrame(t, frame) {
         let session = frame.session;
@@ -213,16 +263,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         for (let source of session.inputSources) {
             if (source.gamepad && source.handedness=="right") {
-                if(source.gamepad.buttons[0].pressed || source.gamepad.buttons[1].pressed) {
+                if(source.gamepad.buttons[0].pressed || source.gamepad.buttons[1].pressed || source.gamepad.buttons[2].pressed) {
                     if( !isPressed ) {
                       if(source.gamepad.buttons[0].pressed) {
-                        console.log( "Start measurement pressed!" );
-                        socket.emit('start_measurement', {data: 'none'});
+                        start_measurement();
+                      }
+                      if(source.gamepad.buttons[5].pressed) {
+                        pause_measurement();
                       }
                       if(source.gamepad.buttons[1].pressed) {
-                        console.log( "Center disk pressed" );
-                        //ringNode.setRing( 0., 0.4, [1., 1., 1.] );
-                        ringNode.setCentering();
+                        centering_measurement();
                       }
                     }
                     isPressed = true;  
@@ -300,5 +350,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // Start the XR application.
       initXR();
     </script>
+
+
   </body>
 </html>
