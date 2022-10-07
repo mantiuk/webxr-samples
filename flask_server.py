@@ -7,7 +7,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room, \
 from gfxdisp.specbos import specbos_measure
 from gfxdisp.color import *
 
-specbos_port = 'COM3'
+specbos_port = 'COM9'
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
@@ -22,7 +22,7 @@ d_range = range(0, 50, 2)
 meas_d = [100] + list(d_range) + list(d_range)
 d_width = [0] + [3] * len(d_range) + [5] * len(d_range)
 
-meas_file = 'vr_contrast_meas_quest2.csv'
+meas_file = 'vr_contrast_meas_valve_index.csv'
 
 def background_thread():
     """Example of how to send server generated events to clients."""
